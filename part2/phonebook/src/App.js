@@ -5,6 +5,32 @@ const Header = ({ title }) => (
     <h1>{title}</h1>
   </>
 );
+const NotificationDialog = ({ message }) => {
+  if (message.text === "") {
+    return <></>;
+  }
+  let color = "";
+  switch (message.intent) {
+    case "success": color = "green";
+      break;
+    case "error": color = "red";
+      break;
+    default: color = "black";
+  }
+  console.log(message.text);
+  const notificationStyle = {
+    color: color,
+    background: "lightgrey",
+    borderStyle: "solid",
+    borderRadius: "5 px",
+    padding: "10 px",
+  }
+  return (
+    <>
+      <h2 style={notificationStyle}>{message.text}</h2>
+    </>
+  );
+};
 const Phonebook = ({ persons, filter, onDeletePerson }) => {
   const filteredPersons = persons.filter((person) => {
     return person.name.toLowerCase().includes(filter.toLowerCase());
@@ -71,6 +97,10 @@ const App = () => {
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [nameFilter, setNameFilter] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState({
+    text: "",
+    intent: null,
+  });
 
   useEffect(() => {
     console.log("effect");
@@ -113,7 +143,16 @@ const App = () => {
             const newListOfPersons = persons.map((person) => {
               return person.id !== updateNumberId ? person : returnedPerson;
             });
+            setNotificationMessage({
+              text: `${newName} number has been updated`,
+              intent: "success",
+            });
             return setPersons(newListOfPersons);
+          }).catch((error) => {
+            setNotificationMessage({
+              text: `this Person is not in our database`,
+              intent: "error",
+            });
           });
       }
     } else {
@@ -123,6 +162,10 @@ const App = () => {
           setPersons(persons.concat(newPerson));
           setNewName("");
           setNewNumber("");
+          setNotificationMessage({
+            text: `${newName} has been successfully added`,
+            intent: "success",
+          });
         });
     }
   };
@@ -148,7 +191,10 @@ const App = () => {
         return;
       })
       .catch((error) => {
-        alert(`this Person is not in our database`);
+        setNotificationMessage({
+          text: `this Person is not in our database`,
+          intent: "error",
+        });
       });
   };
   const isNameOnPhonebook = (name) => {
@@ -160,6 +206,7 @@ const App = () => {
   return (
     <div>
       <Header title="Phonebook" />
+      <NotificationDialog message={notificationMessage} />
       <Filter
         filter={nameFilter}
         onChange={onChangeInputFilter}
