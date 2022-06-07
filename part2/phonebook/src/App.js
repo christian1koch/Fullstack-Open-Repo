@@ -1,11 +1,11 @@
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
+import personService from "./services/persons.service";
 const Header = ({ title }) => (
   <>
     <h1>{title}</h1>
   </>
 );
-const Phonebook = ({ persons, filter }) => {
+const Phonebook = ({ persons, filter, onDeletePerson }) => {
   const filteredPersons = persons.filter((person) => {
     return person.name.toLowerCase().includes(filter.toLowerCase());
   });
@@ -13,7 +13,13 @@ const Phonebook = ({ persons, filter }) => {
     return (
       <p key={person.name}>
         {" "}
-        {person.name}: {person.number}
+        {person.name}: {person.number}{" "}
+        <button
+          id={person.id}
+          onClick={onDeletePerson}
+        >
+          Delete
+        </button>
       </p>
     );
   });
@@ -37,7 +43,7 @@ const AddNameSection = ({
   onSubmitPerson,
 }) => (
   <>
-  <h2>Add new person:</h2>
+    <h2>Add new person:</h2>
     <form onSubmit={onSubmitPerson}>
       <div>
         name:{" "}
@@ -61,15 +67,19 @@ const AddNameSection = ({
 );
 const App = () => {
   // states
-  const [persons, setPersons] = useState([
-    { name: "Arto Hellas", number: "040-123456", id: 1 },
-    { name: "Ada Lovelace", number: "39-44-5323523", id: 2 },
-    { name: "Dan Abramov", number: "12-43-234345", id: 3 },
-    { name: "Mary Poppendieck", number: "39-23-6423122", id: 4 },
-  ]);
+  const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [nameFilter, setNameFilter] = useState("");
+
+  useEffect(() => {
+    console.log("effect");
+    personService.getAll().then((newPersons) => setPersons(newPersons));
+    // axios.get("http://localhost:3001/persons").then(response => {
+    //   setPersons(response.data);
+    //   console.log("response data", response.data);
+    // });
+  }, []);
 
   const onChangeInputName = (event) => {
     setNewName(event.target.value);
@@ -86,14 +96,61 @@ const App = () => {
   const onSubmitNewPerson = (event) => {
     event.preventDefault();
     if (isNameOnPhonebook(newName)) {
-      alert(`${newName} is already in Phonebook`);
+      if (isFullInfoOnPhonebook(newName, newNumber)) {
+        return alert(`${newName} is already in Phonebook`);
+      }
+      if (
+        window.confirm(
+          `${newName} is already added to Phonebook, replace old number with the new one?`
+        )
+      ) {
+        const updateNumberId = persons.find(
+          (person) => person.name === newName
+        ).id;
+        return personService
+          .update(updateNumberId, { name: newName, number: newNumber })
+          .then((returnedPerson) => {
+            const newListOfPersons = persons.map((person) => {
+              return person.id !== updateNumberId ? person : returnedPerson;
+            });
+            return setPersons(newListOfPersons);
+          });
+      }
     } else {
-      setPersons(persons.concat({ name: newName, number: newNumber }));
-      setNewName("");
-      setNewNumber("");
+      personService
+        .create({ name: newName, number: newNumber })
+        .then((newPerson) => {
+          setPersons(persons.concat(newPerson));
+          setNewName("");
+          setNewNumber("");
+        });
     }
   };
-
+  const isFullInfoOnPhonebook = (name, number) => {
+    const personToFind = persons.find((person) => person.name === name);
+    if (!personToFind) return false;
+    if (personToFind.number === number) return true;
+    return false;
+  };
+  const onDeletePerson = (event) => {
+    personService
+      .getAtId(event.target.id)
+      .then((person) => {
+        if (window.confirm(`Are you sure you want to delete ${person.name}?`)) {
+          personService.remove(event.target.id).then(() => {
+            setPersons(
+              persons.filter((person) => {
+                return person.id !== Number(event.target.id);
+              })
+            );
+          });
+        }
+        return;
+      })
+      .catch((error) => {
+        alert(`this Person is not in our database`);
+      });
+  };
   const isNameOnPhonebook = (name) => {
     const isOnPhonebook = persons.findIndex((person) => {
       return person.name === name;
@@ -117,6 +174,7 @@ const App = () => {
       <Phonebook
         persons={persons}
         filter={nameFilter}
+        onDeletePerson={onDeletePerson}
       />
     </div>
   );
